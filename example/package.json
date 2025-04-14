@@ -16,6 +16,6 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0",
-    "bun-template": "link:bun-template"
+    "@dobuki/firebase-store": "link:@dobuki/firebase-store"
   }
 }

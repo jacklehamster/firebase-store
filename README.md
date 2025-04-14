@@ -1,6 +1,6 @@
-# bun-template
+# firebase-store
 
-[![npm version](https://badge.fury.io/js/bun-template.svg)](https://www.npmjs.com/package/bun-template)
+[![npm version](https://badge.fury.io/js/@dobuki#%2Ffirebase-store.svg)](https://www.npmjs.com/package/@dobuki#%2Ffirebase-store)
 
 Bun template for creating projects using bunjs
 
@@ -18,7 +18,7 @@ Bun template for creating projects using bunjs
 
 ## Github Source
 
-<https://github.com/jacklehamster/bun-template/>
+<https://github.com/jacklehamster/@dobuki/firebase-store>
 
 ## Create a new repo
 

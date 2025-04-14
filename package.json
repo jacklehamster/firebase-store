@@ -1,25 +1,15 @@
 {
-  "name": "bun-template",
+  "name": "@dobuki/firebase-store",
   "module": "src/index.ts",
-  "description": "Bun template for creating projects using bunjs",
-  "version": "1.0.66",
-  "keywords": [
-    "bun",
-    "bunjs",
-    "typescript",
-    "template",
-    "npm",
-    "np",
-    "publish",
-    "git"
-  ],
+  "description": "Some lib for storing data in Firebase Firestore",
+  "version": "1.0.0",
+  "keywords": [],
   "repository": {
     "type": "git",
-    "url": "git@github.com:jacklehamster/bun-template.git"
+    "url": "https://github.com/jacklehamster/firebase-store.git"
   },
-  "homepage": "https://jacklehamster.github.io/bun-template/",
   "author": {
-    "name": "Jack Le Hamster",
+    "name": "Vincent Le Quang",
     "email": "jacklehamster@gmail.com"
   },
   "license": "MIT",
@@ -46,5 +36,8 @@
   ],
   "devDependencies": {
     "@dobuki/dev-dependencies": "latest"
+  },
+  "dependencies": {
+    "firebase": "^11.6.0"
   }
 }
