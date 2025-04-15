@@ -1,32 +1,30 @@
 import { FireStorage } from ".";
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_KEY,
-  authDomain: "webrtc-b85c9.firebaseapp.com",
-  projectId: "webrtc-b85c9",
-  storageBucket: "webrtc-b85c9.firebasestorage.app",
-  messagingSenderId: "321301028335",
-  appId: "1:321301028335:web:d7b65825507d893776ea1a",
-  measurementId: "G-K15RTTZ6M5"
+  privateKey: process.env.FIREBASE_PRIVATE_KEY ?? "",
+  projectId: process.env.FIREBASE_PROJECT_ID ?? "",
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
 };
 
 // Example usage:
 async function runExample() {
   const fb = new FireStorage(firebaseConfig, "kvRoot");
   // Set some key-value pairs
-  await fb.setKeyValue("name", "John Doe");
-  await fb.setKeyValue("date", new Date().toString());
-  await fb.setKeyValue("city", "San Francisco");
+  await fb.setKeyValue("age", { age: 30 });
+  await fb.setKeyValue("name", { name: "John Doe" });
+  await fb.setKeyValue("date", { date: new Date().toString() });
+  await fb.setKeyValue("city", { city: "San Francisco" });
 
   // Retrieve the values
+  const age = await fb.getValue("age");
   const name = await fb.getValue("name");
   const date = await fb.getValue("date");
   const country = await fb.getValue("country"); // This key doesn't exist
 
+  console.log("Retrieved age:", age);
   console.log("Retrieved Name:", name);
   console.log("Retrieved Date:", date);
   console.log("Retrieved Country:", country);
 }
 
 await runExample();
-process.exit();

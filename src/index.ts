@@ -9,7 +9,7 @@ interface FirebaseConfigRest {
   privateKey: string;
 }
 
-class FireStorage {
+class FireStorageRest {
   private projectId: string;
   private clientEmail: string;
   private privateKey: string;
@@ -47,7 +47,9 @@ class FireStorage {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${signedJwt}`,
       });
+
       const tokenData = await tokenResponse.json();
+
       if (tokenData.access_token) {
         this.accessToken = tokenData.access_token;
         this.accessTokenExpiry = Date.now() + (tokenData.expires_in - 60) * 1000; // Refresh 60 seconds early
@@ -62,8 +64,8 @@ class FireStorage {
     }
   }
 
-  private convertToFirestoreData(data: any): any {
-    const firestoreData: any = {};
+  private convertToFirestoreData(data: Record<string, any>): Record<string, any> {
+    const firestoreData: Record<string, any> = {};
     for (const key in data) {
       const value = data[key];
       if (typeof value === 'string') {
@@ -87,6 +89,7 @@ class FireStorage {
   private convertFromFirestoreData(firestoreData: any): any {
     const data: any = {};
     if (firestoreData && firestoreData.fields) {
+
       for (const key in firestoreData.fields) {
         const value = firestoreData.fields[key];
         if (value.stringValue !== undefined) {
@@ -110,12 +113,12 @@ class FireStorage {
     return data;
   }
 
-  async setKeyValue(key: string, value: any) {
+  async setKeyValue(key: string, value: Record<string, any>) {
     try {
       const accessToken = await this.getAccessToken();
       const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}/${key}`;
       const response = await fetch(url, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
@@ -123,19 +126,19 @@ class FireStorage {
         body: JSON.stringify({ fields: this.convertToFirestoreData(value) }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error setting key-value (REST API):", response.status, errorData);
-        throw new Error(`Failed to set value: ${response.status} - ${JSON.stringify(errorData)}`);
-      }
+      const result = await response.text();
+      const responseData = JSON.parse(result);
 
-      console.log(`Successfully set key "${key}" with value (REST API):`, value);
+      if (!response.ok) {
+        console.error("Error setting key-value (REST API):", response.status, responseData);
+        throw new Error(`Failed to set value: ${response.status} - ${JSON.stringify(responseData)}`);
+      }
     } catch (error) {
-      console.error("Error setting key-value (REST API):", error);
+      console.error("Error setting key-value (REST API) - Catch:", error);
     }
   }
 
-  async getValue(key: string): Promise<any | null> {
+  async getValue(key: string): Promise<Record<string, any> | null> {
     try {
       const accessToken = await this.getAccessToken();
       const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}/${key}`;
@@ -144,23 +147,25 @@ class FireStorage {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
         if (response.status === 404) {
           console.log(`No document found for key "${key}" (REST API)`);
           return null;
         }
-        const errorData = await response.json();
-        console.error("Error getting value (REST API):", response.status, errorData);
-        throw new Error(`Failed to get value: ${response.status} - ${JSON.stringify(errorData)}`);
+        console.error("Error getting value (REST API):", response.status, responseData);
+        throw new Error(`Failed to get value: ${response.status} - ${JSON.stringify(responseData)}`);
       }
 
-      const responseData = await response.json();
-      return this.convertFromFirestoreData(responseData)?.value || null;
+      // Return the converted fields directly
+      const convertedData = this.convertFromFirestoreData(responseData);
+      return convertedData || null;
     } catch (error) {
-      console.error("Error getting value (REST API):", error);
+      console.error("Error getting value (REST API) - Catch:", error);
       return null;
     }
   }
 }
 
-export { FireStorage };
+export { FireStorageRest as FireStorage };
