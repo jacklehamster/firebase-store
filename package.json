@@ -35,10 +35,6 @@
     "dist"
   ],
   "devDependencies": {
-    "@dobuki/dev-dependencies": "latest",
-    "@types/jsonwebtoken": "^9.0.9"
-  },
-  "dependencies": {
-    "jsonwebtoken": "^9.0.2"
+    "@dobuki/dev-dependencies": "latest"
   }
 }
