@@ -36,11 +36,9 @@
   ],
   "devDependencies": {
     "@dobuki/dev-dependencies": "latest",
-    "@dobuki/firebase-store": "^1.0.2",
     "@types/jsonwebtoken": "^9.0.9"
   },
   "dependencies": {
-    "firebase": "^11.6.0",
     "jsonwebtoken": "^9.0.2"
   }
 }
