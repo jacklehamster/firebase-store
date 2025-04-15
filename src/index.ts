@@ -1,8 +1,6 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 
-import jwt from 'jsonwebtoken'; // Import the jsonwebtoken library
-
 interface FirebaseConfigRest {
   projectId: string;
   clientEmail: string;
@@ -20,8 +18,48 @@ class FireStorageRest {
   constructor(config: FirebaseConfigRest, rootPath: string = "myStore") {
     this.projectId = config.projectId;
     this.clientEmail = config.clientEmail;
-    this.privateKey = config.privateKey.replace(/\\n/g, '\n'); // Handle escaped newlines
+    this.privateKey = config.privateKey.replace(/\\n/g, '\n');
     this.rootPath = rootPath;
+  }
+
+  // Utility to encode Base64 URL-safe
+  private base64UrlEncode(data: string): string {
+    return btoa(data)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
+  // Utility to convert string to ArrayBuffer
+  private strToArrayBuffer(str: string): ArrayBuffer {
+    const buf = new ArrayBuffer(str.length);
+    const bufView = new Uint8Array(buf);
+    for (let i = 0; i < str.length; i++) {
+      bufView[i] = str.charCodeAt(i);
+    }
+    return buf;
+  }
+
+  // Utility to import private key for Web Crypto
+  private async importPrivateKey(pem: string): Promise<CryptoKey> {
+    // Remove PEM headers and newlines
+    const pemContents = pem
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\s/g, '');
+    const binaryDer = atob(pemContents);
+    const der = this.strToArrayBuffer(binaryDer);
+
+    return crypto.subtle.importKey(
+      'pkcs8',
+      der,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
   }
 
   private async getAccessToken(): Promise<string> {
@@ -32,16 +70,48 @@ class FireStorageRest {
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       iss: this.clientEmail,
-      scope: 'https://www.googleapis.com/auth/datastore', // Firestore scope
+      scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore',
       aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600, // Token expiration time (1 hour)
+      exp: now + 3600,
       iat: now,
     };
 
     try {
-      // Sign the JWT using the private key
-      const signedJwt = jwt.sign(payload, this.privateKey, { algorithm: 'RS256' });
+      // Create JWT header
+      const header = {
+        alg: 'RS256',
+        typ: 'JWT',
+      };
 
+      // Encode header and payload
+      const encodedHeader = this.base64UrlEncode(JSON.stringify(header));
+      const encodedPayload = this.base64UrlEncode(JSON.stringify(payload));
+
+      // Create signing input
+      const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+      // Import private key
+      const privateKey = await this.importPrivateKey(this.privateKey);
+
+      // Sign the JWT
+      const signature = await crypto.subtle.sign(
+        {
+          name: 'RSASSA-PKCS1-v1_5',
+          hash: 'SHA-256',
+        },
+        privateKey,
+        this.strToArrayBuffer(signingInput)
+      );
+
+      // Encode signature
+      const encodedSignature = this.base64UrlEncode(
+        String.fromCharCode(...new Uint8Array(signature))
+      );
+
+      // Create full JWT
+      const signedJwt = `${signingInput}.${encodedSignature}`;
+
+      // Exchange JWT for access token
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -52,14 +122,14 @@ class FireStorageRest {
 
       if (tokenData.access_token) {
         this.accessToken = tokenData.access_token;
-        this.accessTokenExpiry = Date.now() + (tokenData.expires_in - 60) * 1000; // Refresh 60 seconds early
-        return this.accessToken ?? "";
+        this.accessTokenExpiry = Date.now() + (tokenData.expires_in - 60) * 1000;
+        return this.accessToken ?? '';
       } else {
-        console.error("Error getting access token:", tokenData);
-        throw new Error("Failed to obtain access token");
+        console.error('Error getting access token:', tokenData);
+        throw new Error('Failed to obtain access token');
       }
     } catch (error) {
-      console.error("Error generating or exchanging JWT:", error);
+      console.error('Error generating or exchanging JWT:', error);
       throw error;
     }
   }
@@ -75,42 +145,60 @@ class FireStorageRest {
       } else if (typeof value === 'boolean') {
         firestoreData[key] = { booleanValue: value };
       } else if (Array.isArray(value)) {
-        firestoreData[key] = { arrayValue: { values: value.map((item) => this.convertToFirestoreData(item)) } };
+        firestoreData[key] = { arrayValue: { values: value.map((item) => this.convertToFirestoreData({ value: item }).value) } };
       } else if (typeof value === 'object' && value !== null) {
         firestoreData[key] = { mapValue: { fields: this.convertToFirestoreData(value) } };
       } else if (value === null) {
         firestoreData[key] = { nullValue: null };
       }
-      // Add more type handling as needed (timestamps, geo points, etc.)
     }
     return firestoreData;
   }
 
   private convertFromFirestoreData(firestoreData: any): any {
-    const data: any = {};
-    if (firestoreData && firestoreData.fields) {
+    if (!firestoreData) {
+      return null;
+    }
 
-      for (const key in firestoreData.fields) {
-        const value = firestoreData.fields[key];
-        if (value.stringValue !== undefined) {
-          data[key] = value.stringValue;
-        } else if (value.integerValue !== undefined) {
-          data[key] = parseInt(value.integerValue, 10);
-        } else if (value.doubleValue !== undefined) {
-          data[key] = parseFloat(value.doubleValue);
-        } else if (value.booleanValue !== undefined) {
-          data[key] = value.booleanValue;
-        } else if (value.arrayValue !== undefined && value.arrayValue.values) {
-          data[key] = value.arrayValue.values.map((item: any) => this.convertFromFirestoreData(item));
-        } else if (value.mapValue !== undefined && value.mapValue.fields) {
-          data[key] = this.convertFromFirestoreData(value.mapValue);
-        } else if (value.nullValue !== undefined) {
-          data[key] = null;
-        }
-        // Add more type handling as needed
+    if (!firestoreData.fields) {
+      if (firestoreData.stringValue !== undefined) {
+        return firestoreData.stringValue;
+      } else if (firestoreData.integerValue !== undefined) {
+        return parseInt(firestoreData.integerValue, 10);
+      } else if (firestoreData.doubleValue !== undefined) {
+        return parseFloat(firestoreData.doubleValue);
+      } else if (firestoreData.booleanValue !== undefined) {
+        return firestoreData.booleanValue;
+      } else if (firestoreData.arrayValue !== undefined && firestoreData.arrayValue.values) {
+        return firestoreData.arrayValue.values.map((item: any) => this.convertFromFirestoreData(item));
+      } else if (firestoreData.mapValue !== undefined && firestoreData.mapValue.fields) {
+        return this.convertFromFirestoreData(firestoreData.mapValue);
+      } else if (firestoreData.nullValue !== undefined) {
+        return null;
+      }
+      return firestoreData;
+    }
+
+    const data: any = {};
+    for (const key in firestoreData.fields) {
+      const value = firestoreData.fields[key];
+      if (value.stringValue !== undefined) {
+        data[key] = value.stringValue;
+      } else if (value.integerValue !== undefined) {
+        data[key] = parseInt(value.integerValue, 10);
+      } else if (value.doubleValue !== undefined) {
+        data[key] = parseFloat(value.doubleValue);
+      } else if (value.booleanValue !== undefined) {
+        data[key] = value.booleanValue;
+      } else if (value.arrayValue !== undefined && value.arrayValue.values) {
+        data[key] = value.arrayValue.values.map((item: any) => this.convertFromFirestoreData(item));
+      } else if (value.mapValue !== undefined && value.mapValue.fields) {
+        data[key] = this.convertFromFirestoreData(value.mapValue);
+      } else if (value.nullValue !== undefined) {
+        data[key] = null;
       }
     }
-    return data;
+    return Object.keys(data).length > 0 ? data : null;
   }
 
   async setKeyValue(key: string, value: Record<string, any>) {
@@ -126,15 +214,15 @@ class FireStorageRest {
         body: JSON.stringify({ fields: this.convertToFirestoreData(value) }),
       });
 
-      const result = await response.text();
-      const responseData = JSON.parse(result);
+      const responseData = await response.json();
 
       if (!response.ok) {
-        console.error("Error setting key-value (REST API):", response.status, responseData);
+        console.error('Error setting key-value (REST API):', response.status, responseData);
         throw new Error(`Failed to set value: ${response.status} - ${JSON.stringify(responseData)}`);
       }
     } catch (error) {
-      console.error("Error setting key-value (REST API) - Catch:", error);
+      console.error('Error setting key-value (REST API) - Catch:', error);
+      throw error;
     }
   }
 
@@ -154,15 +242,14 @@ class FireStorageRest {
           console.log(`No document found for key "${key}" (REST API)`);
           return null;
         }
-        console.error("Error getting value (REST API):", response.status, responseData);
+        console.error('Error getting value (REST API):', response.status, responseData);
         throw new Error(`Failed to get value: ${response.status} - ${JSON.stringify(responseData)}`);
       }
 
-      // Return the converted fields directly
       const convertedData = this.convertFromFirestoreData(responseData);
       return convertedData || null;
     } catch (error) {
-      console.error("Error getting value (REST API) - Catch:", error);
+      console.error('Error getting value (REST API) - Catch:', error);
       return null;
     }
   }
