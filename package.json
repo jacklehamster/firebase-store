@@ -2,7 +2,7 @@
   "name": "@dobuki/firebase-store",
   "module": "src/index.ts",
   "description": "Some lib for storing data in Firebase Firestore",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "keywords": [],
   "repository": {
     "type": "git",
