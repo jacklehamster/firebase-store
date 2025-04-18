@@ -35,6 +35,10 @@
     "dist"
   ],
   "devDependencies": {
-    "@dobuki/dev-dependencies": "latest"
+    "@dobuki/dev-dependencies": "latest",
+    "@types/xxhashjs": "^0.2.4"
+  },
+  "dependencies": {
+    "xxhashjs": "^0.2.2"
   }
 }
