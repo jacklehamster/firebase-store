@@ -302,7 +302,7 @@ class FireStorageRest {
 
   async getDataHash(obj: any): Promise<string> {
     const json = JSON.stringify(obj);
-    const hash = await hashString(json);
+    const hash = hashString(json);
     await this.setKeyValue(hash, obj);
     return hash;
   }
