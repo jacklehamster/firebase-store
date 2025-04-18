@@ -3,7 +3,7 @@
 
 import { hashString } from "./utils";
 
-interface FirebaseConfigRest {
+export interface FirebaseConfigRest {
   projectId: string;
   clientEmail: string;
   privateKey: string;
