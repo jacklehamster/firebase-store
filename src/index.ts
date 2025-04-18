@@ -1,6 +1,8 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 
+import { hashString } from "./utils";
+
 interface FirebaseConfigRest {
   projectId: string;
   clientEmail: string;
@@ -252,6 +254,13 @@ class FireStorageRest {
       console.error('Error getting value (REST API) - Catch:', error);
       return null;
     }
+  }
+
+  async getDataHash(obj: any): Promise<string> {
+    const json = JSON.stringify(obj);
+    const hash = await hashString(json);
+    await this.setKeyValue(hash, obj);
+    return hash;
   }
 }
 
