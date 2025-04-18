@@ -205,13 +205,13 @@ class FireStorageRest {
 
   async setKeyValue(
     key: string,
-    valueOrUpdater: Record<string, any> | ((prevValue: Record<string, any> | null) => Record<string, any>)
+    valueOrUpdater: undefined | Record<string, any> | ((prevValue: Record<string, any> | null) => Record<string, any>)
   ): Promise<void> {
     try {
       const accessToken = await this.getAccessToken();
       const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}/${key}`;
 
-      let newValue: Record<string, any>;
+      let newValue: Record<string, any> | undefined;
 
       if (typeof valueOrUpdater === 'function') {
         // Fetch the current value
@@ -222,13 +222,15 @@ class FireStorageRest {
         newValue = valueOrUpdater;
       }
 
+      // If newValue is undefined, delete the document
+      // Otherwise, update the document with newValue
       const response = await fetch(url, {
-        method: 'PATCH',
+        method: newValue === undefined ? 'DELETE' : 'PATCH',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields: this.convertToFirestoreData(newValue) }),
+        body: newValue === undefined ? undefined : JSON.stringify({ fields: this.convertToFirestoreData(newValue) }),
       });
 
       const responseData = await response.json();
@@ -238,7 +240,7 @@ class FireStorageRest {
         throw new Error(`Failed to set value: ${response.status} - ${JSON.stringify(responseData)}`);
       }
     } catch (error) {
-      console.error('Error setting key-value (REST API) - Catch:', error);
+      console.error('Error in setKeyValue (REST API) - Catch:', error);
       throw error;
     }
   }
