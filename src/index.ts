@@ -203,17 +203,32 @@ class FireStorageRest {
     return Object.keys(data).length > 0 ? data : null;
   }
 
-  async setKeyValue(key: string, value: Record<string, any>) {
+  async setKeyValue(
+    key: string,
+    valueOrUpdater: Record<string, any> | ((prevValue: Record<string, any> | null) => Record<string, any>)
+  ): Promise<void> {
     try {
       const accessToken = await this.getAccessToken();
       const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}/${key}`;
+
+      let newValue: Record<string, any>;
+
+      if (typeof valueOrUpdater === 'function') {
+        // Fetch the current value
+        const currentValue = await this.getValue(key);
+        // Apply the updater function to get the new value
+        newValue = valueOrUpdater(currentValue);
+      } else {
+        newValue = valueOrUpdater;
+      }
+
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields: this.convertToFirestoreData(value) }),
+        body: JSON.stringify({ fields: this.convertToFirestoreData(newValue) }),
       });
 
       const responseData = await response.json();
@@ -253,6 +268,35 @@ class FireStorageRest {
     } catch (error) {
       console.error('Error getting value (REST API) - Catch:', error);
       return null;
+    }
+  }
+
+  async listKeys(): Promise<string[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('Error listing keys (REST API):', response.status, responseData);
+        throw new Error(`Failed to list keys: ${response.status} - ${JSON.stringify(responseData)}`);
+      }
+
+      // Extract document IDs from the response
+      const keys = (responseData.documents || []).map((doc: any) => {
+        const pathSegments = doc.name.split('/');
+        return pathSegments[pathSegments.length - 1];
+      });
+
+      return keys;
+    } catch (error) {
+      console.error('Error listing keys (REST API) - Catch:', error);
+      return [];
     }
   }
 
