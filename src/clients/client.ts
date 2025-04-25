@@ -3,6 +3,7 @@ export interface KeyValueStore {
   getValue(key: string): Promise<any>;
   listKeys(): Promise<string[]>;
   deleteKey(key: string): void;
+  cleanup(): void;
 }
 
 export function firebaseWrappedServer(url: string): KeyValueStore {
@@ -32,8 +33,13 @@ export function firebaseWrappedServer(url: string): KeyValueStore {
       if (!success) {
         localStorage.setItem("beaconFailure", `Beacon failed for key: ${key} at ${new Date().toISOString()}`);
         console.warn("Beacon failed, falling back to fetch");
-        fetch(deleteUrl, { method: 'GET' });
+        fetch(deleteUrl);
       }
+    },
+    async cleanup(): Promise<{ keys: string[]; deletedKeys: string[] }> {
+      const response = await fetch(`${url}?cleanup=1`);
+      const json = await response.json();
+      return json;
     }
   }
 }

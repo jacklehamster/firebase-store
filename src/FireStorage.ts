@@ -1,6 +1,7 @@
 import { FirebaseConfigRest } from "./servers/FirebaseConfigRest";
 import { hashString } from "./utils";
 
+const CUTOFF_7_DAYS = 7 * 24 * 60 * 60 * 1000;
 
 export class FireStorage {
   private projectId: string;
@@ -215,6 +216,10 @@ export class FireStorage {
         newValue = valueOrUpdater;
       }
 
+      if (newValue) {
+        newValue.timestamp = new Date().toISOString();
+      }
+
       // If newValue is undefined, delete the document
       // Otherwise, update the document with newValue
       const response = await fetch(url, {
@@ -300,5 +305,59 @@ export class FireStorage {
     const hash = hashString(json);
     await this.setKeyValue(hash, obj);
     return hash;
+  }
+
+  async queryByTimestamp(field: string, operator: 'LESS_THAN' | 'LESS_THAN_OR_EQUAL' | 'GREATER_THAN' | 'GREATER_THAN_OR_EQUAL' | 'EQUAL', value: string | number): Promise<{ id: string; data: Record<string, any> }[]> {
+    const accessToken = await this.getAccessToken();
+    const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents:runQuery`;
+    const query = {
+      structuredQuery: {
+        from: [{ collectionId: this.rootPath }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: field },
+            op: operator,
+            value: typeof value === 'string' ? { stringValue: value } : { integerValue: String(value) },
+          },
+        },
+      },
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(query),
+    });
+    const responseData = await response.json();
+    if (!response.ok) throw new Error(`Query failed: ${response.status}`);
+    return (responseData || [])
+      .filter((result: any) => result.document)
+      .map((result: any) => ({
+        id: result.document.name.split('/').pop(),
+        data: this.convertFromFirestoreData(result.document) || {},
+      }));
+  }
+
+  async deleteByTimestamp(field: string, operator: 'LESS_THAN' | 'LESS_THAN_OR_EQUAL' | 'GREATER_THAN' | 'GREATER_THAN_OR_EQUAL' | 'EQUAL', value: string | number): Promise<string[]> {
+    const documents = await this.queryByTimestamp(field, operator, value);
+    const deletedKeys: string[] = [];
+    for (const doc of documents) {
+      await this.setKeyValue(doc.id, undefined);
+      deletedKeys.push(doc.id);
+    }
+    return deletedKeys;
+  }
+
+  async cleanup(): Promise<string[]> {
+    try {
+      // Calculate cutoff
+      const cutoff = new Date(Date.now() - CUTOFF_7_DAYS).toISOString();
+
+      // Delete documents with timestamp less than cutoff
+      const deletedKeys = await this.deleteByTimestamp("timestamp", "LESS_THAN", cutoff);
+      return deletedKeys; // Returns array of deleted document IDs
+    } catch (error) {
+      console.error('Error in cleanup:', error);
+      throw error;
+    }
   }
 }
