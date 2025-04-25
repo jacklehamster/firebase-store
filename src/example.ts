@@ -1,14 +1,16 @@
-import { FireStorage } from ".";
+import { FireStorage } from "./FireStorage";
+import { FirebaseConfigRest } from "./servers/FirebaseConfigRest";
 
-const firebaseConfig = {
+const firebaseConfig: FirebaseConfigRest = {
   privateKey: process.env.FIREBASE_PRIVATE_KEY ?? "",
   projectId: process.env.FIREBASE_PROJECT_ID ?? "",
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
+  rootPath: "kvRoot",
 };
 
 // Example usage:
 async function runExample() {
-  const fb = new FireStorage(firebaseConfig, "kvRoot");
+  const fb = new FireStorage(firebaseConfig);
   // Set some key-value pairs
   await fb.setKeyValue("age", { age: 30 });
   await fb.setKeyValue("name", { name: "John Doe" });
