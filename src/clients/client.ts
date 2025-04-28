@@ -1,7 +1,7 @@
 export interface KeyValueStore {
   setKeyValue(key: string, value: any): Promise<any>;
   getValue(key: string): Promise<any>;
-  listKeys(): Promise<string[]>;
+  list(): Promise<Record<string, any>>;
   deleteKey(key: string): void;
   cleanup(): void;
 }
@@ -22,10 +22,10 @@ export function firebaseWrappedServer(url: string): KeyValueStore {
       const data = await response.json();
       return data?.value ? JSON.parse(data.value) : undefined;
     },
-    async listKeys(): Promise<string[]> {
+    async list(): Promise<string[]> {
       const response = await fetch(url);
       const json = await response.json();
-      return json.keys;
+      return json.list;
     },
     deleteKey(key: string) {
       const deleteUrl = `${url}/${key}?delete=1`;

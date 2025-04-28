@@ -271,7 +271,7 @@ export class FireStorage {
     }
   }
 
-  async listKeys(): Promise<string[]> {
+  async list(): Promise<Record<string, Record<string, any>>> {
     try {
       const accessToken = await this.getAccessToken();
       const url = `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${this.rootPath}`;
@@ -283,20 +283,25 @@ export class FireStorage {
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error('Error listing keys (REST API):', response.status, responseData);
-        throw new Error(`Failed to list keys: ${response.status} - ${JSON.stringify(responseData)}`);
+        console.error('Error listing documents (REST API):', response.status, responseData);
+        throw new Error(`Failed to list documents: ${response.status} - ${JSON.stringify(responseData)}`);
       }
 
-      // Extract document IDs from the response
-      const keys = (responseData.documents || []).map((doc: any) => {
-        const pathSegments = doc.name.split('/');
-        return pathSegments[pathSegments.length - 1];
-      });
+      const result: Record<string, Record<string, any>> = {};
 
-      return keys;
+      for (const doc of responseData.documents || []) {
+        const pathSegments = doc.name.split('/');
+        const docId = pathSegments[pathSegments.length - 1];
+        const data = this.convertFromFirestoreData(doc);
+        if (data !== null) {
+          result[docId] = data;
+        }
+      }
+
+      return result;
     } catch (error) {
-      console.error('Error listing keys (REST API) - Catch:', error);
-      return [];
+      console.error('Error listing documents (REST API) - Catch:', error);
+      return {};
     }
   }
 

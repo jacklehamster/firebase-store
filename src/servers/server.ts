@@ -2,7 +2,7 @@ import { FirebaseConfigRest } from "./FirebaseConfigRest";
 import { FireStorage } from "../FireStorage";
 
 export interface ResponseData {
-  keys?: string[];
+  list?: Record<string, any>;
   key?: string;
   value?: any;
   deletedKeys?: string[];
@@ -16,8 +16,8 @@ export async function handleServerResponse(urlString: string, firebaseConfig: Fi
     storage = new FireStorage(firebaseConfig);
   }
   if (url.pathname === "/") {
-    const keys = await storage.listKeys();
-    return { keys };
+    const list = await storage.list();
+    return { list };
   }
 
   const key = url.pathname.substring(1);
@@ -27,12 +27,12 @@ export async function handleServerResponse(urlString: string, firebaseConfig: Fi
 
   if (cleanup) {
     const deletedKeys = await storage.cleanup();
-    const keys = await storage.listKeys();
-    return { keys, deletedKeys };
+    const list = await storage.list();
+    return { list, deletedKeys };
   } else if (del) {
     await storage.setKeyValue(key, undefined);
-    const keys = await storage.listKeys();
-    return { keys, deletedKeys: [key] };
+    const list = await storage.list();
+    return { list, deletedKeys: [key] };
   } else if (value !== null) {
     await storage.setKeyValue(key, { value });
     return { key, value };
