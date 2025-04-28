@@ -294,7 +294,7 @@ export class FireStorage {
         const docId = pathSegments[pathSegments.length - 1];
         const data = this.convertFromFirestoreData(doc);
         if (data !== null) {
-          result[docId] = data;
+          result[docId] = JSON.parse(data.value);
         }
       }
 
