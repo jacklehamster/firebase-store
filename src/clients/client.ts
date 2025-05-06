@@ -4,6 +4,7 @@ export interface KeyValueStore {
   list(): Promise<Record<string, any>>;
   deleteKey(key: string): void;
   cleanup(): void;
+  checkBeaconFailures(): void;
 }
 
 export function firebaseWrappedServer(url: string): KeyValueStore {
@@ -40,6 +41,13 @@ export function firebaseWrappedServer(url: string): KeyValueStore {
       const response = await fetch(`${url}?cleanup=1`);
       const json = await response.json();
       return json;
-    }
+    },
+    checkBeaconFailures() {
+      const failure = localStorage.getItem("beaconFailure");
+      if (failure) {
+        console.warn(failure);
+        localStorage.removeItem("beaconFailure");
+      }
+    },
   }
 }
